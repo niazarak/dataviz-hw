@@ -79,3 +79,13 @@ circle {
     border-radius: 50%;
     display: inline-block;
 }
+
+.tooltip {
+    position: absolute;
+    text-align: center;
+    width: 60px;
+    padding: 2px;
+    background: white;
+    border-radius: 8px;
+    pointer-events: none;
+}

@@ -38,6 +38,11 @@ params.forEach((val) => {
 d3.select("#xParam").property('value', xParam);
 d3.select("#yParam").property('value', yParam);
 
+
+const tooltip = d3.select("body").append("div")
+    .attr("class", "tooltip")
+    .style("opacity", 0);
+
 loadData().then(data => {
     console.log(data);
 
@@ -93,7 +98,17 @@ loadData().then(data => {
             .attr('cx', d => x(+d[xParam][year]))
             .attr('cy', (d) => y(+d[yParam][year]))
             .attr('r', (d) => r(+d[radius][year]))
-            .attr('style', (d) => `fill:${color(d['region'])}`);
+            .attr('style', (d) => `fill:${color(d['region'])}`)
+            .on("mouseover", d => {
+                tooltip.style("opacity", .9);
+                tooltip.html(d.country)
+                    .style("left", (d3.event.pageX) + "px")
+                    .style("top", (d3.event.pageY - 28) + "px");
+            })
+            .on("mouseout", _ => {
+                tooltip.style("opacity", 0);
+            });
+
         circles.exit().remove();
 
 

@@ -2,6 +2,6 @@
 
 Kazaryan Ashot
 
-[hw1](hw1/index.html) 
+[hw1](https://niazarak.github.io/dataviz-hw/hw1/index.html) 
 
-[hw2](hw2/index.html) 
+[hw2](https://niazarak.github.io/dataviz-hw/hw2/index.html) 

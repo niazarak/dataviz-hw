@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>HW 4</title>
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <script src="https://unpkg.com/d3-simple-slider"></script>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="year"></div>
+<div id="country"></div>
+<div id="menu">
+    <input type="radio" name="param" value="gdp" checked> gdp<br>
+    <input type="radio" name="param" value="child-mortality"> child-mortality<br>
+    <input type="radio" name="param" value="life-expectancy"> life-expectancy<br>
+    <input type="radio" name="param" value="fertility-rate"> fertility-rate<br>
+</div>
+<div id="slider"></div>
+<script type="text/javascript">
+    loadData().then(({data, world}) => {
+        console.log(data, world);
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        const sliderHeight = 100;
+
+        const duration = 700;// duration of animation
+
+        // a state variables
+        let year = '1900';
+        let param = 'gdp';
+
+        // svg element for the map
+        const svg = d3.select('body').append('svg').attr('width', width).attr('height', height);
+
+        const colors = ['#d73027', '#1a9850']; // gradient colors
+        const noColor = '#CDCCCC'; // default country color
+
+        // TODO Part 1: here you can create a linear scale based on colors
+        const color = d3.scaleLinear().range(colors);
+
+        // years array
+        const years = Object.keys(data[0][param]).map(d => +d).filter(d => d);
+
+        // TODO Part 2: here you can create х & y scales
+        const x = d3.scaleBand(years, [0, width]).padding(.1);
+        const y = d3.scaleLinear().range([sliderHeight, 0]);
+
+        // TODO Part 3: here you can create an svg inside #menu and add a legend
+        const legend = d3.select('#menu').append('svg')
+            .attr('width', 200).attr("height", 40);
+        let gradient = legend.append('defs')
+            .append("svg:linearGradient")
+                .attr("id", "gradient");
+
+        gradient.append('stop').attr('offset', '0%')
+            .style("stop-color", colors[0]);
+        gradient.append('stop').attr('offset', '100%')
+            .style("stop-color", colors[1]);
+
+        legend.append('rect')
+            .attr('width', 200).attr("height", 20)
+            .style("fill", "url(#gradient)");
+
+        const axis = legend.append('g').attr('id','axis').attr('transform', 'translate(0,20)');
+
+        // call update() when param changes
+        d3.selectAll('input[name="param"]').on('change', function () {
+            param = this.value;
+            update();
+        });
+
+        // creating a slider
+        const slider = d3.sliderBottom()
+            .domain([d3.min(years), d3.max(years)])
+            .step(1).width(width).default(year)
+            .ticks(0).displayValue(false)
+            .on('onchange', val => { // call update() when year changes
+                year = val;
+                update();
+            });
+
+        // creating svg at the buttom
+        const range = d3.select('#slider').append('svg')
+            .attr('width', width).attr('height', sliderHeight);
+
+        // creating overlay
+        range.append('rect').attr('width', width).attr('height', height).attr('id', 'overlay');
+
+        // creating a g for barchart
+        const chart = range.append('g');
+
+        // add a slider
+        range.append('g').call(slider);
+
+        // adding a costume thumb
+        d3.select('g.slider').selectAll('line').remove();
+        d3.select('g.parameter-value path').attr('d', `M 0,0 V ${sliderHeight} H -${x.bandwidth()} V 0 Z`);
+
+        // TODO Part 1: here you can create a projection d3.geoEquirectangular() and a geopath generator
+        console.log(world.features);
+        const projection = d3.geoEquirectangular().fitSize([width, height], world);
+        const geoPath = d3.geoPath().projection(projection);
+
+
+        const map = svg.selectAll('path')
+            .data(world.features).enter()
+            .append('path')
+            .attr('d', geoPath)
+            .attr('stroke', 'white')
+            .on('mouseover', d => d3.select('#country').text(d.properties.name))
+            .on('mouseout', d => d3.select('#country').text(''))
+        ;
+
+        // this function'll update both charts when any parameter changes
+        function update() {
+            // update a year
+            d3.select('#year').text(year);
+
+            // update color scale domain
+            color.domain(d3.extent(data.map(d => +d[param][year])));
+
+            // change country's colors
+            map.attr('fill', feature => {
+                // findin' a countrys data item
+                let country = data.find(d => d.geo === feature.id.toLowerCase());
+                if (country === undefined) {
+                    return noColor
+                }
+                return color(country[param][year]);
+            });
+
+            // make an array for barchart
+            let array = years.map(y => d3.sum(data.map(d => +d[param][y])));
+            // TODO Part 2: update y scale domain
+            console.log(array);
+            y.domain([Math.min(...array), Math.max(...array)]);
+            const barWidth = (width / array.length) * .8;
+            // TODO Part 2: create and update barchart
+            chart.selectAll('rect')
+                .data(array, (d, i) => years[i])
+                .join(
+                    enter => enter.append('rect')
+                        .attr('id', (d, i) => d ? this.id : years[i])
+                        .attr('x', (d, i) => x(years[i]))
+                        .attr('y', 0)
+                        .attr('transform', `scale(1, -1) translate(0, -${sliderHeight})`)
+                        .attr('width', barWidth)
+                        .attr('height', (d, i) => sliderHeight - y(d))
+                        .style('transition', 'height 1s'),
+                    update => update.attr('height', (d, i) => sliderHeight - y(d)),
+                    exit => exit.remove()
+                );
+
+            // TODO Part 3: update legend axis based on param
+
+            let bottomAxis = d3.axisBottom(d3.scaleLinear().range([0, 200]).domain(d3.extent(data.map(d => +d[param][year]))));
+            bottomAxis.ticks(3);
+            axis.call(bottomAxis)
+        }
+
+        // call update() for the first time
+        update();
+    });
+
+    async function loadData() {
+        const population = await d3.csv('data/pop.csv');
+        const rest = {
+            'gdp': await d3.csv('data/gdppc.csv'),
+            'child-mortality': await d3.csv('data/cmu5.csv'),
+            'life-expectancy': await d3.csv('data/life_expect.csv'),
+            'fertility-rate': await d3.csv('data/tfr.csv')
+        };
+        const data = population.map(d => {
+            return {
+                geo: d.geo,
+                country: d.country,
+                region: d.region,
+                population: {...d},
+                ...Object.values(rest).map(v => v.find(r => r.geo === d.geo)).reduce((o, d, i) => ({...o, [Object.keys(rest)[i]]: d}), {})
+            }
+        });
+        let world = await d3.json('http://enjalot.github.io/wwsd/data/world/world-110m.geojson');
+        world = {
+            ...world,
+            // features: world.features.slice(0, 10)
+        };
+        return {data, world}
+    }
+
+</script>
+</body>
+</html>
